@@ -1,0 +1,14 @@
+{
+  "name": "dev-challenge",
+  "version": "1.0.0",
+  "description": "Dev challenge proposed by ClassApp",
+  "main": "index.js",
+  "repository": "https://github.com/nadineouro/devChallenge.git",
+  "author": "Nadine <nadine.meyer.ouro@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "fs": "^0.0.1-security",
+    "google-libphonenumber": "^3.2.6",
+    "lodash": "^4.17.15"
+  }
+}
