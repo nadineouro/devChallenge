@@ -56,30 +56,30 @@ validatePhone = phone => {
   }
 }
 
-
 const format = (headerName, address, headers) => { 
   const header  = _.find(headers, ([key, value]) => key === headerName)
   const keyWords = (clearCommas(header[1])).split(' ')
   const type = keyWords[0]
   const tags = _.without(keyWords, keyWords[0])
   const obj = { type, tags, address }
-  let isValid = false
-  _.map(obj.address, addr => {
-    switch (obj.type) {
-      case 'phone':
-        isValid = validatePhone(addr)
-        if (isValid) obj.address = isValid
-        break
-      case 'email':
-        isValid = validateEmail(addr)
-        break
-      default:
-        break
-    }
-  })
+  let isValid = true
+  switch (obj.type) {
+    case 'phone': 
+      isValid = validatePhone(address)
+      if (isValid) obj.address = isValid
+      break
+    case 'email':
+      isValid = validateEmail(address)
+      break
+    default: 
+      break
+  }
   if (isValid) return obj
-  // return obj 
 }
+
+const saveJSON = array =>
+  fs.writeFile("output.json", JSON.stringify(array), err => err ? console.log(err) : console.log('JSON file saved!'))
+
 
 const main = async () => {
   const json = await getJsonFromCsv(filePath)
@@ -122,11 +122,13 @@ const main = async () => {
       student.addresses = handleAddresses(student.addresses, addresses)
     })
     student.addresses = _.map(Object.entries(student.addresses), ([key, value]) => {
-      const res = format(key, value, addrHeaders)
-      if (res) return res
+      if (value.length >= 1) {
+        const test = _.map(value, addr => format(key, addr, addrHeaders))
+        if (test) return test
+      }
     })
     studentList.push(student)
-    console.log(student.addresses)
   })
+  saveJSON(studentList)
 }
 main()
