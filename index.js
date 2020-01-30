@@ -2,6 +2,8 @@ const _ = require('lodash')
 const fs = require('fs')
 const csv = require('csvtojson')
 const filePath = './input.csv'
+const phoneUtil = require('google-libphonenumber').PhoneNumberUtil.getInstance();
+const PNF = require('google-libphonenumber').PhoneNumberFormat
 
 getJsonFromCsv = async filePath => (csv({
   noheader: true,
@@ -36,13 +38,47 @@ const handleAddresses = (student, addresses) => {
 const handleSeeAll = (student, seeAll) => !student ? (seeAll === 'yes' ? true : false) : student
 const handleInvisible = (student, invisible) => !student ? (invisible === '1' ? true : false) : student
 
+validateEmail = email => {
+  const expression = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/
+  return(expression.test(String(email).toLowerCase()))
+  // (!email.includes('@') || !email.includes('.co')) ? false : true
+}
+
+validatePhone = phone => {
+  try {
+    let number = phoneUtil.parse(phone, 'BR');
+    if (phoneUtil.isValidNumberForRegion(number, 'BR')) {
+      res = phoneUtil.format(number, PNF.E164).replace('+', '')
+      return res
+    }
+  } catch (e) {
+    return false
+  }
+}
+
+
 const format = (headerName, address, headers) => { 
   const header  = _.find(headers, ([key, value]) => key === headerName)
   const keyWords = (clearCommas(header[1])).split(' ')
   const type = keyWords[0]
   const tags = _.without(keyWords, keyWords[0])
   const obj = { type, tags, address }
-  /* if (address.length > 0)  */return obj 
+  let isValid = false
+  _.map(obj.address, addr => {
+    switch (obj.type) {
+      case 'phone':
+        isValid = validatePhone(addr)
+        if (isValid) obj.address = isValid
+        break
+      case 'email':
+        isValid = validateEmail(addr)
+        break
+      default:
+        break
+    }
+  })
+  if (isValid) return obj
+  // return obj 
 }
 
 const main = async () => {
@@ -65,21 +101,16 @@ const main = async () => {
       invisible: undefined, 
       see_all: undefined
     }
-    const { fullname, eid/* , invisible, see_all */ } = groupedByName[name][0]
+    const { fullname, eid } = groupedByName[name][0]
 
     student.fullname = fullname || undefined
     student.eid = eid || undefined
-    // student.invisible = invisible || undefined
-    // student.see_all = see_all || undefined
 
     _.map(groupedByName[name], info => {
       const { class1, class2, address1, address2, address3, address4, address5, address6, invisible, see_all } = info
-
       student.invisible = handleInvisible(student.invisible, invisible)
       student.see_all = handleSeeAll(student.see_all, see_all)
-
       student.classes = handleClass(student.classes, `${class1},${class2}`)
-
       const addresses = { 
         address1: address1 || undefined, 
         address2: address2 || undefined, 
@@ -95,7 +126,7 @@ const main = async () => {
       if (res) return res
     })
     studentList.push(student)
-    console.log(student)
+    console.log(student.addresses)
   })
 }
 main()
