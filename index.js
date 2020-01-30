@@ -6,34 +6,48 @@ const filePath = './input.csv'
 getJsonFromCsv = async filePath => (csv({
   noheader: true,
   headers: [
-    'fullname', 
-    'eid', 
-    'class1', 
-    'class2', 
-    'address1', 
-    'address2', 
-    'address3', 
-    'address4', 
-    'address5', 
-    'address6', 
-    'invisible', 
-    'see_all'
+    'fullname', 'eid', 'class1', 'class2', 'address1', 'address2', 
+    'address3', 'address4', 'address5', 'address6', 'invisible', 'see_all'
   ]
 }).fromFile(filePath).then(json => json))
 
-const parseSlashOnComma = str => str.replace(/\//g, ',')
+const replaceSlash = str => str.replace(/\//g, ',')
+const clearCommas = str => str.split(',').join('')
+const clearWhiteSpaces = str => str.split(' ').join('')
 
 const handleClass = (student, cl) => {
-  formatedClass = parseSlashOnComma(cl)
-  const arr = formatedClass.split(',')
+  const formattedClass = replaceSlash(cl)
+  const arr = formattedClass.split(',')
   _.map(arr, c => c && student.push(c.trim()))
   return student.length === 1 ? student[0] : student
+}
+
+const handleAddresses = (student, addresses) => {
+  _.map(Object.entries(addresses), ([key, value]) => {
+    if (value) { 
+      const formattedAddr = clearWhiteSpaces(replaceSlash(value))
+      const arr = formattedAddr.split(',')
+      _.map(arr, a => a && student[key].push(a))
+    }
+  })
+  return student
+}
+
+const format = (headerName, address, headers) => { 
+  const header  = _.find(headers, ([key, value]) => key === headerName)
+  const keyWords = (clearCommas(header[1])).split(' ')
+  const type = keyWords[0]
+  const tags = _.without(keyWords, keyWords[0])
+  const obj = { type, tags, address }
+  /* if (address.length > 0)  */return obj 
 }
 
 const main = async () => {
   const json = await getJsonFromCsv(filePath)
   const data = _.without(json, json[0])
-  const headers = json[0]
+
+  const { address1, address2, address3, address4, address5, address6 } = json[0]
+  const addrHeaders = Object.entries({ address1, address2, address3, address4, address5, address6 })
 
   const groupedByName = _.groupBy(data, 'fullname')
   const names = _.map(groupedByName, (name, key) => key)
@@ -58,16 +72,23 @@ const main = async () => {
     _.map(groupedByName[name], info => {
       const { class1, class2, address1, address2, address3, address4, address5, address6 } = info
       student.classes = handleClass(student.classes, `${class1},${class2}`)
-      const addresses = { address1, address2, address3, address4, address5, address6 }
-      _.map(Object.entries(addresses), entry => {
-        const key = entry[0]
-        const value = entry[1]
-        if (value) student.addresses[key].push(value)
-      })
+
+      const addresses = { 
+        address1: address1 || undefined, 
+        address2: address2 || undefined, 
+        address3: address3 || undefined, 
+        address4: address4 || undefined, 
+        address5: address5 || undefined, 
+        address6: address6 || undefined
+      }
+      student.addresses = handleAddresses(student.addresses, addresses)
+    })
+    student.addresses = _.map(Object.entries(student.addresses), ([key, value]) => {
+      const res = format(key, value, addrHeaders)
+      if (res) return res
     })
     studentList.push(student)
     console.log(student)
   })
-  // console.log(studentList)
 }
 main()
