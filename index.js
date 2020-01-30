@@ -33,6 +33,9 @@ const handleAddresses = (student, addresses) => {
   return student
 }
 
+const handleSeeAll = (student, seeAll) => !student ? (seeAll === 'yes' ? true : false) : student
+const handleInvisible = (student, invisible) => !student ? (invisible === '1' ? true : false) : student
+
 const format = (headerName, address, headers) => { 
   const header  = _.find(headers, ([key, value]) => key === headerName)
   const keyWords = (clearCommas(header[1])).split(' ')
@@ -62,15 +65,19 @@ const main = async () => {
       invisible: undefined, 
       see_all: undefined
     }
-    const { fullname, eid, invisible, see_all } = groupedByName[name][0]
+    const { fullname, eid/* , invisible, see_all */ } = groupedByName[name][0]
 
     student.fullname = fullname || undefined
     student.eid = eid || undefined
-    student.invisible = invisible || undefined
-    student.see_all = see_all || undefined
+    // student.invisible = invisible || undefined
+    // student.see_all = see_all || undefined
 
     _.map(groupedByName[name], info => {
-      const { class1, class2, address1, address2, address3, address4, address5, address6 } = info
+      const { class1, class2, address1, address2, address3, address4, address5, address6, invisible, see_all } = info
+
+      student.invisible = handleInvisible(student.invisible, invisible)
+      student.see_all = handleSeeAll(student.see_all, see_all)
+
       student.classes = handleClass(student.classes, `${class1},${class2}`)
 
       const addresses = { 
