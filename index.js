@@ -5,7 +5,7 @@ const filePath = './input.csv'
 const phoneUtil = require('google-libphonenumber').PhoneNumberUtil.getInstance();
 const PNF = require('google-libphonenumber').PhoneNumberFormat
 
-getJsonFromCsv = async filePath => (csv({
+const getJsonFromCsv = async filePath => (csv({
   noheader: true,
   headers: [
     'fullname', 'eid', 'class1', 'class2', 'address1', 'address2', 
@@ -13,35 +13,67 @@ getJsonFromCsv = async filePath => (csv({
   ]
 }).fromFile(filePath).then(json => json))
 
-const replaceSlash = str => str.replace(/\//g, ',')
-const clearCommas = str => str.split(',').join('')
-const clearWhiteSpaces = str => str.split(' ').join('')
+const saveJSONFile = arrayClass =>
+  fs.writeFile("output.json", JSON.stringify(arrayClass), err => 
+    err ? console.log(err) : console.log('JSON file saved!'))
 
-const handleClass = (student, cl) => {
-  const formattedClass = replaceSlash(cl)
-  const arr = formattedClass.split(',')
-  _.map(arr, c => c && student.push(c.trim()))
+const handleClass = (student, _class) => {
+  const formattedClass = replaceSlash(_class)
+  const arrayClass = formattedClass.split(',')
+  _.map(arrayClass, cl => cl && student.push(cl.trim()))
   return student.length === 1 ? student[0] : student
 }
 
-const handleAddresses = (student, addresses) => {
-  _.map(Object.entries(addresses), ([key, value]) => {
+const handleAddresses = (mainAddresses, addrs) => {
+  _.map(Object.entries(addrs), ([key, value]) => {
     if (value) { 
       const formattedAddr = clearWhiteSpaces(replaceSlash(value))
-      const arr = formattedAddr.split(',')
-      _.map(arr, a => a && student[key].push(a))
+      const arrayAddr = formattedAddr.split(',')
+      _.map(arrayAddr, addr => addr && mainAddresses[key].push(addr))
     }
   })
-  return student
+  return mainAddresses
 }
 
 const handleSeeAll = (student, seeAll) => !student ? (seeAll === 'yes' ? true : false) : student
+
 const handleInvisible = (student, invisible) => !student ? (invisible === '1' ? true : false) : student
+
+
+const formatAddrResult = (headerName, address, headers) => { 
+  const addrHeader  = _.find(headers, ([key, value]) => key === headerName)
+  const keyWords = (clearCommas(addrHeader[1])).split(' ')
+  const type = keyWords[0]
+  const tags = _.without(keyWords, keyWords[0])
+  if (address.length > 0) {
+    _.map(address, addr => {
+      const obj = { type, tags, address: undefined }
+      let isValid = true
+      switch (obj.type) {
+        case 'phone': 
+          isValid = validatePhone(addr)
+          if (isValid) obj.address = isValid
+          break
+        case 'email':
+          isValid = validateEmail(addr)
+          if (isValid) obj.address = addr
+          break
+        default: 
+          isValid = addr.length < 0 ? false : true
+          break
+      }
+      if (isValid) {
+        addresses = [] 
+        addresses.push(obj)
+      }
+    }) 
+  }
+  return addresses
+}
 
 const validateEmail = email => {
   const expression = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/
   return(expression.test(String(email).toLowerCase()))
-  // (!email.includes('@') || !email.includes('.co')) ? false : true
 }
 
 const validatePhone = phone => {
@@ -56,31 +88,9 @@ const validatePhone = phone => {
   }
 }
 
-const format = (headerName, address, headers) => { 
-  const header  = _.find(headers, ([key, value]) => key === headerName)
-  const keyWords = (clearCommas(header[1])).split(' ')
-  const type = keyWords[0]
-  const tags = _.without(keyWords, keyWords[0])
-  const obj = { type, tags, address }
-  let isValid = true
-  switch (obj.type) {
-    case 'phone': 
-      isValid = validatePhone(address)
-      if (isValid) obj.address = isValid
-      break
-    case 'email':
-      isValid = validateEmail(address)
-      break
-    default: 
-      // isValid = address.length < 0 ? false : true
-      break
-  }
-  if (address.length > 0) return obj
-}
-
-const saveJSON = array =>
-  fs.writeFile("output.json", JSON.stringify(array), err => err ? console.log(err) : console.log('JSON file saved!'))
-
+const replaceSlash = str => str.replace(/\//g, ',')
+const clearCommas = str => str.split(',').join('')
+const clearWhiteSpaces = str => str.split(' ').join('')
 
 const main = async () => {
   const json = await getJsonFromCsv(filePath)
@@ -92,13 +102,14 @@ const main = async () => {
   const groupedByName = _.groupBy(data, 'fullname')
   const names = _.map(groupedByName, (name, key) => key)
   const studentList = []
+  let mainAddresses = { address1: [], address2: [], address3: [], address4: [], address5: [], address6: [] }
 
   _.map(names, name => {
     const student = { 
       fullname: undefined, 
       eid: undefined,
       classes: [],
-      addresses: { address1: [], address2: [], address3: [], address4: [], address5: [], address6: [] },
+      addresses: [],
       invisible: undefined, 
       see_all: undefined
     }
@@ -120,15 +131,17 @@ const main = async () => {
         address5: address5 || undefined, 
         address6: address6 || undefined
       }
-      student.addresses = handleAddresses(student.addresses, addresses)
+      mainAddresses = handleAddresses(mainAddresses, addresses)
     })
-    student.addresses = _.map(Object.entries(student.addresses), ([key, value]) => {
-      const res = format(key, value, addrHeaders)
-      if (res) return res
+    student.addresses = []
+    _.map(Object.entries(mainAddresses), ([key, value]) => {
+      if (value.length > 0) {
+        const res = formatAddrResult(key, value, addrHeaders)
+        _.map(res, addr => student.addresses.push(addr))
+      }
     })
     studentList.push(student)
-    // console.log(student)
   })
-  saveJSON(studentList)
+  saveJSONFile(studentList)
 }
 main()
