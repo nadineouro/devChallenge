@@ -38,13 +38,13 @@ const handleAddresses = (student, addresses) => {
 const handleSeeAll = (student, seeAll) => !student ? (seeAll === 'yes' ? true : false) : student
 const handleInvisible = (student, invisible) => !student ? (invisible === '1' ? true : false) : student
 
-validateEmail = email => {
+const validateEmail = email => {
   const expression = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/
   return(expression.test(String(email).toLowerCase()))
   // (!email.includes('@') || !email.includes('.co')) ? false : true
 }
 
-validatePhone = phone => {
+const validatePhone = phone => {
   try {
     let number = phoneUtil.parse(phone, 'BR');
     if (phoneUtil.isValidNumberForRegion(number, 'BR')) {
@@ -72,9 +72,10 @@ const format = (headerName, address, headers) => {
       isValid = validateEmail(address)
       break
     default: 
+      // isValid = address.length < 0 ? false : true
       break
   }
-  if (isValid) return obj
+  if (address.length > 0) return obj
 }
 
 const saveJSON = array =>
@@ -122,12 +123,11 @@ const main = async () => {
       student.addresses = handleAddresses(student.addresses, addresses)
     })
     student.addresses = _.map(Object.entries(student.addresses), ([key, value]) => {
-      if (value.length >= 1) {
-        const test = _.map(value, addr => format(key, addr, addrHeaders))
-        if (test) return test
-      }
+      const res = format(key, value, addrHeaders)
+      if (res) return res
     })
     studentList.push(student)
+    // console.log(student)
   })
   saveJSON(studentList)
 }
